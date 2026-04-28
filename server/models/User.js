@@ -37,6 +37,50 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  bio: {
+    type: String,
+    default: '',
+    maxlength: 500,
+  },
+  status: {
+    type: String,
+    enum: ['online', 'away', 'busy', 'offline'],
+    default: 'offline',
+  },
+  statusMessage: {
+    type: String,
+    default: 'Available',
+    maxlength: 100,
+  },
+  timezone: {
+    type: String,
+    default: 'UTC',
+  },
+  phone: {
+    type: String,
+    default: '',
+  },
+  website: {
+    type: String,
+    default: '',
+  },
+  location: {
+    type: String,
+    default: '',
+  },
+  badges: [{
+    type: String,
+    enum: ['admin', 'verified', 'moderator'],
+  }],
+  // END NEW FIELDS
+  isOnline: {
+    type: Boolean,
+    default: false,
+  },
+  lastSeen: {
+    type: Date,
+    default: Date.now,
+  },
 }, { timestamps: true });
 
 // Hash password before saving

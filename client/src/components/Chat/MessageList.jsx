@@ -1,6 +1,7 @@
 // client/src/components/Chat/MessageList.jsx
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useState } from 'react';
 
 const formatTime = (date) => {
   return new Date(date).toLocaleTimeString('en-US', {

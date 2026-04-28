@@ -10,6 +10,7 @@ const roomRoutes = require('./routes/rooms');
 const dmRoutes = require('./routes/dm');
 const searchRoutes = require('./routes/search');
 const socketHandler = require('./socket/socketHandler');
+const userProfileRoutes = require('./routes/userProfile');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -37,6 +38,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/dm', dmRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/user', userProfileRoutes);
+
 
 // Health check
 app.get('/api/health', (req, res) => {
