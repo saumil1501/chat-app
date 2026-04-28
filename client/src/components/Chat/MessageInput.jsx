@@ -1,6 +1,8 @@
 // client/src/components/Chat/MessageInput.jsx
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useSocket } from '../../context/SocketContext';
+import FileUpload from './FileUpload';
+
 
 const MessageInput = ({ roomId, onSendMessage, editingMessage, onCancelEdit }) => {
   const [message, setMessage] = useState('');
@@ -8,6 +10,14 @@ const MessageInput = ({ roomId, onSendMessage, editingMessage, onCancelEdit }) =
   const textareaRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const { socket } = useSocket();
+
+  const handleFileUpload = (file) => {
+    // Create a file message
+    const fileMessage = `📎 [${file.fileName}](${file.url})`;
+    onSendMessage(fileMessage);
+  };
+
+  
 
   useEffect(() => {
     if (editingMessage) {
@@ -72,20 +82,8 @@ const MessageInput = ({ roomId, onSendMessage, editingMessage, onCancelEdit }) =
     <div className="p-4 border-t border-light">
       {/* Edit mode indicator */}
       {editingMessage && (
-        <div className="flex items-center justify-between mb-2 px-3 py-2 
-                        bg-primary/20 border border-primary/30 rounded-lg">
-          <div className="flex items-center gap-2">
-            <span className="text-primary text-sm">✏️</span>
-            <span className="text-sm text-gray-300">
-              Editing: <span className="text-white">{editingMessage.content}</span>
-            </span>
-          </div>
-          <button
-            onClick={() => { onCancelEdit(); setMessage(''); }}
-            className="text-gray-400 hover:text-white text-xl leading-none"
-          >
-            ×
-          </button>
+        <div className="text-sm text-yellow-500 mb-2">
+          Editing message...
         </div>
       )}
 
@@ -94,10 +92,12 @@ const MessageInput = ({ roomId, onSendMessage, editingMessage, onCancelEdit }) =
         <button
           type="button"
           className="text-2xl text-gray-400 hover:text-white transition shrink-0 mb-1"
-          title="Emoji (coming soon)"
         >
           😊
         </button>
+
+        {/* File Upload */}
+        <FileUpload onFileUpload={handleFileUpload} roomId={roomId} />
 
         {/* Input */}
         <div className="flex-1 relative">
@@ -106,7 +106,7 @@ const MessageInput = ({ roomId, onSendMessage, editingMessage, onCancelEdit }) =
             value={message}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder={roomId ? "Type a message... (Enter to send)" : "Select a room to start chatting"}
+            placeholder={roomId ? "Type a message... (Enter to send)" : "Select a room"}
             disabled={!roomId}
             rows={1}
             className="w-full bg-light border border-gray-600 rounded-xl px-4 py-3 
@@ -133,8 +133,7 @@ const MessageInput = ({ roomId, onSendMessage, editingMessage, onCancelEdit }) =
       </form>
 
       <p className="text-xs text-gray-500 mt-2 ml-12">
-        Press <kbd className="bg-light px-1 rounded">Enter</kbd> to send,{' '}
-        <kbd className="bg-light px-1 rounded">Shift+Enter</kbd> for new line
+        Press <kbd className="bg-light px-1 rounded">Enter</kbd> to send
       </p>
     </div>
   );

@@ -11,6 +11,8 @@ const dmRoutes = require('./routes/dm');
 const searchRoutes = require('./routes/search');
 const socketHandler = require('./socket/socketHandler');
 const userProfileRoutes = require('./routes/userProfile');
+const uploadRoutes = require('./routes/upload');
+const directMessageRoutes = require('./routes/directMessages');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -27,7 +29,7 @@ const io = new Server(httpServer, {
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: process.env.CLIENT_URL || ["http://localhost:5173", "http://localhost:5174"],
   credentials: true,
 }));
 app.use(express.json());
@@ -39,6 +41,9 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/dm', dmRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/user', userProfileRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/dm', directMessageRoutes);
+
 
 
 // Health check
@@ -86,7 +91,6 @@ httpServer.on('error', (err) => {
   }
 });
 
-const directMessageRoutes = require('./routes/directMessages');
-app.use('/api/dm', directMessageRoutes);
+
 
 

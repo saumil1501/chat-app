@@ -22,7 +22,16 @@ const formatDate = (date) => {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 };
 
+const getFileType = (url) => {
+  const ext = url.split('.').pop().toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return 'image';
+  if (['mp4', 'webm'].includes(ext)) return 'video';
+  return 'file';
+};
+
 const MessageBubble = ({ message, isOwn, onEdit, onDelete }) => {
+  const isFile = message.content.includes('[') && message.content.includes('](');
+
   return (
     <div className={`flex items-end gap-2 group ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
       {/* Avatar */}
@@ -71,9 +80,56 @@ const MessageBubble = ({ message, isOwn, onEdit, onDelete }) => {
                 : 'bg-light text-gray-100 rounded-bl-none'
             }`}
           >
-            <p className="text-sm leading-relaxed break-words">{message.content}</p>
-            <div className={`flex items-center gap-1 mt-1 
-                            ${isOwn ? 'justify-end' : 'justify-start'}`}>
+            {/* File or Text Message */}
+            {isFile ? (
+              // Render file preview
+              (() => {
+                const match = message.content.match(/\[(.+?)\]\((.+?)\)/);
+                if (!match) return <p className="text-sm">{message.content}</p>;
+
+                const [_, fileName, fileUrl] = match;
+                const fileType = getFileType(fileUrl);
+
+                return (
+                  <div>
+                    {fileType === 'image' && (
+                      <img
+                        src={fileUrl}
+                        alt={fileName}
+                        className="rounded-lg max-w-xs max-h-64 mb-2 cursor-pointer hover:opacity-80"
+                        onClick={() => window.open(fileUrl, '_blank')}
+                      />
+                    )}
+                    {fileType === 'video' && (
+                      <video
+                        src={fileUrl}
+                        controls
+                        className="rounded-lg max-w-xs max-h-64 mb-2"
+                      />
+                    )}
+                    {fileType === 'file' && (
+                      <a
+                        href={fileUrl}
+                        download={fileName}
+                        className="flex items-center gap-2 text-primary hover:text-secondary transition"
+                      >
+                        <span>📥</span>
+                        <span className="underline text-sm">{fileName}</span>
+                      </a>
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              // Render text message
+              <p className="text-sm leading-relaxed break-words">{message.content}</p>
+            )}
+
+            {/* Timestamp and status */}
+            <div
+              className={`flex items-center gap-1 mt-1 
+                          ${isOwn ? 'justify-end' : 'justify-start'}`}
+            >
               <span className="text-xs opacity-60">{formatTime(message.createdAt)}</span>
               {message.isEdited && (
                 <span className="text-xs opacity-50">(edited)</span>
@@ -134,8 +190,10 @@ const MessageList = ({ messages, onEditMessage, onDeleteMessage, loading }) => {
               <MessageBubble
                 key={message._id}
                 message={message}
-                isOwn={message.sender?._id === user?._id ||
-                       message.sender === user?._id}
+                isOwn={
+                  message.sender?._id === user?._id ||
+                  message.sender === user?._id
+                }
                 onEdit={onEditMessage}
                 onDelete={onDeleteMessage}
               />
