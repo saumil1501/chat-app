@@ -198,6 +198,54 @@ const socketHandler = (io) => {
         lastSeen: new Date(),
       });
     });
+
+    // ==================== DIRECT MESSAGES ====================
+
+    socket.on('dm:send', async ({ recipientId, content }) => {
+      try {
+        const DirectMessage = require('../models/DirectMessage');
+        
+        const message = await DirectMessage.create({
+          sender: socket.user._id,
+          recipient: recipientId,
+          content,
+        });
+
+        await message.populate('sender', 'username avatar');
+
+        // Send to recipient if online
+        const recipientSocketId = connectedUsers.get(recipientId);
+        if (recipientSocketId) {
+          io.to(recipientSocketId).emit('dm:receive', message);
+        }
+
+        // Send to sender
+        socket.emit('dm:sent', message);
+
+        console.log(`💌 DM from ${socket.user.username} to ${recipientId}`);
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to send DM' });
+      }
+    });
+
+    socket.on('dm:typing', ({ recipientId }) => {
+      const recipientSocketId = connectedUsers.get(recipientId);
+      if (recipientSocketId) {
+        io.to(recipientSocketId).emit('dm:userTyping', {
+          userId: socket.user._id,
+          username: socket.user.username,
+        });
+      }
+    });
+
+    socket.on('dm:read', async ({ messageId }) => {
+      try {
+        const DirectMessage = require('../models/DirectMessage');
+        await DirectMessage.findByIdAndUpdate(messageId, { isRead: true });
+      } catch (error) {
+        console.error('Error marking DM as read');
+      }
+    });
   });
 };
 

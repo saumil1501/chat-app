@@ -7,6 +7,8 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/rooms');
+const dmRoutes = require('./routes/dm');
+const searchRoutes = require('./routes/search');
 const socketHandler = require('./socket/socketHandler');
 
 const app = express();
@@ -33,6 +35,8 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/dm', dmRoutes);
+app.use('/api/search', searchRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -78,3 +82,8 @@ httpServer.on('error', (err) => {
     process.exit(1);
   }
 });
+
+const directMessageRoutes = require('./routes/directMessages');
+app.use('/api/dm', directMessageRoutes);
+
+

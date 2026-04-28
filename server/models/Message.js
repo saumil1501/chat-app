@@ -34,3 +34,5 @@ const messageSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = mongoose.model('Message', messageSchema);
+
+messageSchema.index({ content: 'text', 'sender.username': 'text' });

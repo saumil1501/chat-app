@@ -6,6 +6,7 @@ import { api } from '../../context/AuthContext';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import toast from 'react-hot-toast';
+import SearchBar from './SearchBar';
 
 const TypingIndicator = ({ typingUsers }) => {
   if (typingUsers.length === 0) return null;
@@ -31,6 +32,8 @@ const TypingIndicator = ({ typingUsers }) => {
 };
 
 const ChatBox = ({ room }) => {
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [typingUsers, setTypingUsers] = useState([]);
@@ -186,23 +189,36 @@ const ChatBox = ({ room }) => {
   return (
     <div className="flex-1 flex flex-col bg-dark overflow-hidden">
       {/* Room Header */}
-      <div className="p-4 border-b border-light flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary rounded-xl flex items-center 
-                        justify-center text-xl">
-          🏠
+      <div className="p-4 border-b border-light flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center 
+                          justify-center text-xl">
+            🏠
+          </div>
+          <div>
+            <h2 className="font-bold text-white">#{room?.name}</h2>
+            {room?.description && (
+              <p className="text-xs text-gray-400">{room.description}</p>
+            )}
+          </div>
         </div>
-        <div>
-          <h2 className="font-bold text-white">#{room.name}</h2>
-          {room.description && (
-            <p className="text-xs text-gray-400">{room.description}</p>
-          )}
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-gray-400">
-            {room.members?.length || 0} members
-          </span>
-        </div>
+
+        <button
+          onClick={() => setShowSearch(!showSearch)}
+          className="text-gray-400 hover:text-white transition text-xl"
+          title="Search messages"
+        >
+          🔍
+        </button>
       </div>
+
+      {/* Search Bar */}
+      {showSearch && (
+        <SearchBar
+          searchType="messages"
+          onSearchResults={(data) => setSearchResults(data.messages || [])}
+        />
+      )}
 
       {/* Load More */}
       {hasMore && (
@@ -215,20 +231,32 @@ const ChatBox = ({ room }) => {
         </button>
       )}
 
-      {/* Messages */}
-      <MessageList
-        messages={messages}
-        onEditMessage={setEditingMessage}
-        onDeleteMessage={handleDeleteMessage}
-        loading={loading}
-      />
+      {/* Show search results if available */}
+      {showSearch && searchResults.length > 0 ? (
+        <MessageList
+          messages={searchResults}
+          onEditMessage={() => {}}
+          onDeleteMessage={() => {}}
+          loading={false}
+        />
+      ) : (
+        <>
+          {/* Messages */}
+          <MessageList
+            messages={messages}
+            onEditMessage={setEditingMessage}
+            onDeleteMessage={handleDeleteMessage}
+            loading={loading}
+          />
 
-      {/* Typing Indicator */}
-      <TypingIndicator typingUsers={typingUsers} />
+          {/* Typing Indicator */}
+          <TypingIndicator typingUsers={typingUsers} />
+        </>
+      )}
 
       {/* Message Input */}
       <MessageInput
-        roomId={room._id}
+        roomId={room?._id}
         onSendMessage={handleSendMessage}
         editingMessage={editingMessage}
         onCancelEdit={() => setEditingMessage(null)}
