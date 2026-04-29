@@ -27,6 +27,15 @@ const messageSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  parentMessage: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Message',
+    default: null,
+  },
+  threadCount: {
+    type: Number,
+    default: 0,
+  },
   readBy: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

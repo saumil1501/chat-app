@@ -238,6 +238,7 @@ const ChatBox = ({ room }) => {
           onEditMessage={() => {}}
           onDeleteMessage={() => {}}
           loading={false}
+          roomId={room?._id}
         />
       ) : (
         <>
@@ -247,6 +248,7 @@ const ChatBox = ({ room }) => {
             onEditMessage={setEditingMessage}
             onDeleteMessage={handleDeleteMessage}
             loading={loading}
+            roomId={room?._id}
           />
 
           {/* Typing Indicator */}

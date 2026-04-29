@@ -1,7 +1,9 @@
 // client/src/components/Chat/MessageList.jsx
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useState } from 'react';
+import { api } from '../../context/AuthContext';
+import ThreadModal from './ThreadModal';
+import toast from 'react-hot-toast';
 
 const formatTime = (date) => {
   return new Date(date).toLocaleTimeString('en-US', {
@@ -29,121 +31,154 @@ const getFileType = (url) => {
   return 'file';
 };
 
-const MessageBubble = ({ message, isOwn, onEdit, onDelete }) => {
+const MessageBubble = ({ message, isOwn, onEdit, onDelete, roomId }) => {
+  const [showThread, setShowThread] = useState(false);
   const isFile = message.content.includes('[') && message.content.includes('](');
 
   return (
-    <div className={`flex items-end gap-2 group ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
-      {/* Avatar */}
-      {!isOwn && (
-        <img
-          src={message.sender?.avatar}
-          alt={message.sender?.username}
-          className="w-8 h-8 rounded-full object-cover shrink-0 mb-1"
-        />
-      )}
-
-      <div className={`max-w-[70%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
-        {/* Username */}
+    <>
+      <div className={`flex items-end gap-2 group ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+        {/* Avatar */}
         {!isOwn && (
-          <span className="text-xs text-gray-400 mb-1 ml-1">
-            {message.sender?.username}
-          </span>
+          <img
+            src={message.sender?.avatar}
+            alt={message.sender?.username}
+            className="w-8 h-8 rounded-full object-cover shrink-0 mb-1"
+          />
         )}
 
-        <div className="flex items-end gap-2">
-          {/* Action buttons (visible on hover) - for own messages */}
-          {isOwn && (
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition mb-1">
-              <button
-                onClick={() => onEdit(message)}
-                className="text-xs text-gray-400 hover:text-white bg-light 
-                           rounded px-2 py-1 transition"
-              >
-                ✏️
-              </button>
-              <button
-                onClick={() => onDelete(message._id)}
-                className="text-xs text-gray-400 hover:text-red-400 bg-light 
-                           rounded px-2 py-1 transition"
-              >
-                🗑️
-              </button>
-            </div>
+        <div className={`max-w-[70%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
+          {/* Username */}
+          {!isOwn && (
+            <span className="text-xs text-gray-400 mb-1 ml-1">
+              {message.sender?.username}
+            </span>
           )}
 
-          {/* Message bubble */}
-          <div
-            className={`rounded-2xl px-4 py-2.5 ${
-              isOwn
-                ? 'bg-primary text-white rounded-br-none'
-                : 'bg-light text-gray-100 rounded-bl-none'
-            }`}
-          >
-            {/* File or Text Message */}
-            {isFile ? (
-              // Render file preview
-              (() => {
-                const match = message.content.match(/\[(.+?)\]\((.+?)\)/);
-                if (!match) return <p className="text-sm">{message.content}</p>;
-
-                const [_, fileName, fileUrl] = match;
-                const fileType = getFileType(fileUrl);
-
-                return (
-                  <div>
-                    {fileType === 'image' && (
-                      <img
-                        src={fileUrl}
-                        alt={fileName}
-                        className="rounded-lg max-w-xs max-h-64 mb-2 cursor-pointer hover:opacity-80"
-                        onClick={() => window.open(fileUrl, '_blank')}
-                      />
-                    )}
-                    {fileType === 'video' && (
-                      <video
-                        src={fileUrl}
-                        controls
-                        className="rounded-lg max-w-xs max-h-64 mb-2"
-                      />
-                    )}
-                    {fileType === 'file' && (
-                      <a
-                        href={fileUrl}
-                        download={fileName}
-                        className="flex items-center gap-2 text-primary hover:text-secondary transition"
-                      >
-                        <span>📥</span>
-                        <span className="underline text-sm">{fileName}</span>
-                      </a>
-                    )}
-                  </div>
-                );
-              })()
-            ) : (
-              // Render text message
-              <p className="text-sm leading-relaxed break-words">{message.content}</p>
+          <div className="flex items-end gap-2">
+            {/* Action buttons (visible on hover) - for own messages */}
+            {isOwn && (
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition mb-1">
+                <button
+                  onClick={() => onEdit(message)}
+                  className="text-xs text-gray-400 hover:text-white bg-light 
+                             rounded px-2 py-1 transition"
+                  title="Edit"
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={() => onDelete(message._id)}
+                  className="text-xs text-gray-400 hover:text-red-400 bg-light 
+                             rounded px-2 py-1 transition"
+                  title="Delete"
+                >
+                  🗑️
+                </button>
+                <button
+                  onClick={() => setShowThread(true)}
+                  className="text-xs text-gray-400 hover:text-white bg-light 
+                             rounded px-2 py-1 transition"
+                  title="Reply in thread"
+                >
+                  💬
+                </button>
+              </div>
             )}
 
-            {/* Timestamp and status */}
+            {/* Message bubble */}
             <div
-              className={`flex items-center gap-1 mt-1 
-                          ${isOwn ? 'justify-end' : 'justify-start'}`}
+              className={`rounded-2xl px-4 py-2.5 ${
+                isOwn
+                  ? 'bg-primary text-white rounded-br-none'
+                  : 'bg-light text-gray-100 rounded-bl-none'
+              }`}
             >
-              <span className="text-xs opacity-60">{formatTime(message.createdAt)}</span>
-              {message.isEdited && (
-                <span className="text-xs opacity-50">(edited)</span>
+              {/* File or Text Message */}
+              {isFile ? (
+                // Render file preview
+                (() => {
+                  const match = message.content.match(/\[(.+?)\]\((.+?)\)/);
+                  if (!match) return <p className="text-sm">{message.content}</p>;
+
+                  const [_, fileName, fileUrl] = match;
+                  const fileType = getFileType(fileUrl);
+
+                  return (
+                    <div>
+                      {fileType === 'image' && (
+                        <img
+                          src={fileUrl}
+                          alt={fileName}
+                          className="rounded-lg max-w-xs max-h-64 mb-2 cursor-pointer hover:opacity-80"
+                          onClick={() => window.open(fileUrl, '_blank')}
+                        />
+                      )}
+                      {fileType === 'video' && (
+                        <video
+                          src={fileUrl}
+                          controls
+                          className="rounded-lg max-w-xs max-h-64 mb-2"
+                        />
+                      )}
+                      {fileType === 'file' && (
+                        <a
+                          href={fileUrl}
+                          download={fileName}
+                          className="flex items-center gap-2 text-primary hover:text-secondary transition"
+                        >
+                          <span>📥</span>
+                          <span className="underline text-sm">{fileName}</span>
+                        </a>
+                      )}
+                    </div>
+                  );
+                })()
+              ) : (
+                // Render text message
+                <p className="text-sm leading-relaxed break-words">{message.content}</p>
               )}
-              {isOwn && <span className="text-xs opacity-60">✓✓</span>}
+
+              {/* Timestamp and status */}
+              <div
+                className={`flex items-center gap-1 mt-1 
+                            ${isOwn ? 'justify-end' : 'justify-start'}`}
+              >
+                <span className="text-xs opacity-60">{formatTime(message.createdAt)}</span>
+                {message.isEdited && (
+                  <span className="text-xs opacity-50">(edited)</span>
+                )}
+                {isOwn && <span className="text-xs opacity-60">✓✓</span>}
+              </div>
             </div>
           </div>
+
+          {/* Thread count button (shown if there are replies) */}
+          {message.threadCount > 0 && (
+            <button
+              onClick={() => setShowThread(true)}
+              className="mt-1 text-xs text-primary hover:text-secondary transition ml-1"
+            >
+              💬 {message.threadCount} {message.threadCount === 1 ? 'reply' : 'replies'}
+            </button>
+          )}
         </div>
       </div>
-    </div>
+
+      {/* Thread Modal - only show if roomId is defined */}
+      {roomId && (
+        <ThreadModal
+          messageId={message._id}
+          isOpen={showThread}
+          onClose={() => setShowThread(false)}
+          roomId={roomId}
+        />
+      )}
+    </>
   );
 };
 
-const MessageList = ({ messages, onEditMessage, onDeleteMessage, loading }) => {
+const MessageList = ({ messages, onEditMessage, onDeleteMessage, loading, roomId }) => {
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
 
@@ -196,6 +231,7 @@ const MessageList = ({ messages, onEditMessage, onDeleteMessage, loading }) => {
                 }
                 onEdit={onEditMessage}
                 onDelete={onDeleteMessage}
+                roomId={roomId}          // ✅ Important: pass roomId
               />
             ))}
           </div>
