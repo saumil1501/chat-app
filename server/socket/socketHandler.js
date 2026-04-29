@@ -8,6 +8,10 @@ const connectedUsers = new Map(); // userId -> socketId
 
 const socketHandler = (io) => {
   // Middleware to authenticate socket connections
+
+  // Store active calls
+const activeCalls = new Map(); // callId -> { caller, recipient, socketIds }
+
   io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth.token;
@@ -180,25 +184,6 @@ const socketHandler = (io) => {
       });
     });
 
-    // ==================== DISCONNECT ====================
-
-    socket.on('disconnect', async () => {
-      console.log(`❌ User disconnected: ${socket.user.username}`);
-      connectedUsers.delete(socket.user._id.toString());
-
-      await User.findByIdAndUpdate(socket.user._id, {
-        isOnline: false,
-        lastSeen: Date.now(),
-      });
-
-      io.emit('users:online', Array.from(connectedUsers.keys()));
-      socket.broadcast.emit('user:status', {
-        userId: socket.user._id,
-        isOnline: false,
-        lastSeen: new Date(),
-      });
-    });
-
     // ==================== DIRECT MESSAGES ====================
 
     socket.on('dm:send', async ({ recipientId, content }) => {
@@ -244,6 +229,163 @@ const socketHandler = (io) => {
         await DirectMessage.findByIdAndUpdate(messageId, { isRead: true });
       } catch (error) {
         console.error('Error marking DM as read');
+      }
+    });
+
+    // ==================== CALL EVENTS ====================
+
+    socket.on('call:initiate', async ({ recipientId, callType, mediaType, callId }) => {
+      try {
+        console.log(`📞 Call initiated from ${socket.user.username} to ${recipientId}`);
+
+        const recipientSocketId = connectedUsers.get(recipientId);
+        if (!recipientSocketId) {
+          return socket.emit('error', { message: 'User is offline' });
+        }
+
+        // Store active call
+        activeCalls.set(callId, {
+          caller: socket.user._id,
+          callerSocket: socket.id,
+          recipient: recipientId,
+          recipientSocket: recipientSocketId,
+          callType,
+          mediaType,
+          status: 'ringing',
+        });
+
+        // Send incoming call notification
+        io.to(recipientSocketId).emit('call:incoming', {
+          callId,
+          callerId: socket.user._id,
+          callerName: socket.user.username,
+          callerAvatar: socket.user.avatar,
+          callType,
+          mediaType,
+        });
+
+        console.log(`📞 Incoming call notification sent to ${recipientId}`);
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to initiate call' });
+      }
+    });
+
+    socket.on('call:accept', ({ callId }) => {
+      try {
+        console.log(`✅ Call ${callId} accepted`);
+
+        const call = activeCalls.get(callId);
+        if (!call) return socket.emit('error', { message: 'Call not found' });
+
+        // Notify caller that call was accepted
+        io.to(call.callerSocket).emit('call:accepted', { callId });
+
+        // Update call status
+        call.status = 'connected';
+
+        console.log(`✅ ${socket.user.username} accepted the call`);
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to accept call' });
+      }
+    });
+
+    socket.on('call:reject', ({ callId, reason }) => {
+      try {
+        console.log(`❌ Call ${callId} rejected`);
+
+        const call = activeCalls.get(callId);
+        if (!call) return;
+
+        io.to(call.callerSocket).emit('call:rejected', { callId, reason });
+        activeCalls.delete(callId);
+
+        console.log(`❌ Call rejected by ${socket.user.username}`);
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to reject call' });
+      }
+    });
+
+    // WebRTC signaling - unified signal forwarding
+    socket.on('call:webrtc-signal', ({ callId, signal }) => {
+      try {
+        const call = activeCalls.get(callId);
+        if (!call) return;
+
+        const targetSocket = socket.id === call.callerSocket ? call.recipientSocket : call.callerSocket;
+        io.to(targetSocket).emit('call:webrtc-signal', { callId, signal });
+
+        console.log(`📡 WebRTC signal forwarded for call ${callId}`);
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to forward WebRTC signal' });
+      }
+    });
+
+    socket.on('call:end', ({ callId, duration }) => {
+      try {
+        console.log(`📞 Call ${callId} ended`);
+
+        const call = activeCalls.get(callId);
+        if (!call) return;
+
+        const targetSocket = socket.id === call.callerSocket ? call.recipientSocket : call.callerSocket;
+        io.to(targetSocket).emit('call:ended', { callId, duration });
+
+        activeCalls.delete(callId);
+
+        console.log(`📞 Call ${callId} ended after ${duration} seconds`);
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to end call' });
+      }
+    });
+
+    socket.on('call:cancel', ({ callId }) => {
+      try {
+        console.log(`❌ Call ${callId} cancelled`);
+
+        const call = activeCalls.get(callId);
+        if (!call) return;
+
+        const targetSocket = socket.id === call.callerSocket ? call.recipientSocket : call.callerSocket;
+        io.to(targetSocket).emit('call:cancelled', { callId });
+
+        activeCalls.delete(callId);
+      } catch (error) {
+        socket.emit('error', { message: 'Failed to cancel call' });
+      }
+    });
+
+    // Disconnect: clean up active calls and user status
+    socket.on('disconnect', async () => {
+      try {
+        console.log(`❌ User disconnected: ${socket.user.username}`);
+
+        // Clean up connected users
+        connectedUsers.delete(socket.user._id.toString());
+
+        // Update DB status
+        await User.findByIdAndUpdate(socket.user._id, {
+          isOnline: false,
+          lastSeen: Date.now(),
+        });
+
+        // Notify others
+        io.emit('users:online', Array.from(connectedUsers.keys()));
+        socket.broadcast.emit('user:status', {
+          userId: socket.user._id,
+          isOnline: false,
+          lastSeen: new Date(),
+        });
+
+        // Clean up any active calls involving this socket
+        for (const [callId, call] of activeCalls.entries()) {
+          if (call.callerSocket === socket.id || call.recipientSocket === socket.id) {
+            const otherSocket = call.callerSocket === socket.id ? call.recipientSocket : call.callerSocket;
+            io.to(otherSocket).emit('call:ended', { callId, reason: 'User disconnected' });
+            activeCalls.delete(callId);
+          }
+        }
+      } catch (err) {
+        console.error('Error during disconnect cleanup', err);
       }
     });
   });

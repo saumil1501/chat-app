@@ -5,7 +5,7 @@ import { useSocket } from '../../context/SocketContext';
 import toast from 'react-hot-toast';
 import ProfileModal from '../User/ProfileModal';
 
-const Sidebar = ({ activeRoom, onRoomSelect }) => {
+const Sidebar = ({ activeRoom, onRoomSelect, onTabChange }) => {
   const [rooms, setRooms] = useState([]);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
@@ -254,6 +254,7 @@ const Sidebar = ({ activeRoom, onRoomSelect }) => {
         userId={selectedUserProfile}
         isOpen={!!selectedUserProfile}
         onClose={() => setSelectedUserProfile(null)}
+        onTabChange={onTabChange}
       />
     </>
   );

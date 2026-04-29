@@ -7,14 +7,15 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/rooms');
-const dmRoutes = require('./routes/dm');
 const searchRoutes = require('./routes/search');
+const directMessageRoutes = require('./routes/directMessages');
 const threadRoutes = require('./routes/threads');
 const socketHandler = require('./socket/socketHandler');
 const userProfileRoutes = require('./routes/userProfile');
 const uploadRoutes = require('./routes/upload');
-const directMessageRoutes = require('./routes/directMessages');
 const adminRoutes = require('./routes/admin');
+const callRoutes = require('./routes/calls');
+
 
 
 
@@ -42,13 +43,14 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
-app.use('/api/dm', dmRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/dm', directMessageRoutes);
 app.use('/api/user', userProfileRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/dm', directMessageRoutes);
 app.use('/api/threads', threadRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/calls', callRoutes);
+
 
 
 
@@ -77,10 +79,11 @@ app.use((err, req, res, next) => {
 socketHandler(io);
 
 // Start server
+const PORT = process.env.PORT || 5000;
+
 const startServer = async () => {
   try {
     await connectDB();
-    const PORT = process.env.PORT || 5000;
     httpServer.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
@@ -96,6 +99,8 @@ httpServer.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`❌ Port ${PORT} is already in use. Please kill the process or use a different port.`);
     process.exit(1);
+  } else {
+    console.error('Server error:', err);
   }
 });
 

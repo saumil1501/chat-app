@@ -1,13 +1,19 @@
 // client/src/components/User/ProfileModal.jsx
 import { useState, useEffect } from 'react';
 import { api } from '../../context/AuthContext';
+import { useDM } from '../../context/DMContext';
+import { useAuth } from '../../context/AuthContext';
+import CallButton from '../Call/CallButton';
 import toast from 'react-hot-toast';
 
-const ProfileModal = ({ userId, isOpen, onClose, isOwnProfile = false }) => {
+const ProfileModal = ({ userId, isOpen, onClose, isOwnProfile = false, onTabChange }) => {
   const [user, setUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(true);
+
+  const { setSelectedUser } = useDM();
+  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     if (isOpen && userId) {
@@ -17,6 +23,7 @@ const ProfileModal = ({ userId, isOpen, onClose, isOwnProfile = false }) => {
 
   const fetchProfile = async () => {
     try {
+      setLoading(true);
       const endpoint = isOwnProfile ? '/user/me' : `/user/profile/${userId}`;
       const { data } = await api.get(endpoint);
       setUser(data.user);
@@ -39,43 +46,61 @@ const ProfileModal = ({ userId, isOpen, onClose, isOwnProfile = false }) => {
     }
   };
 
+  // ✅ FIXED: Handle Start DM with tab switch
+  const handleStartDM = () => {
+    if (user) {
+      // Set selected user
+      setSelectedUser(user);
+      
+      // Switch to DM tab
+      if (onTabChange) {
+        onTabChange('dm');
+      }
+      
+      // Close modal
+      onClose();
+      
+      toast.success(`Started DM with ${user.username}`);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-dark rounded-2xl w-full max-w-md max-h-96 overflow-y-auto 
-                      border border-light">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] p-4">
+      <div className="bg-dark rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto 
+                      border border-light shadow-2xl">
         {loading ? (
-          <div className="p-8 flex items-center justify-center">
+          <div className="p-12 flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent 
                             rounded-full animate-spin" />
           </div>
         ) : user ? (
           <>
             {/* Header */}
-            <div className="p-6 border-b border-light flex items-start justify-between">
+            <div className="p-6 border-b border-light flex items-start justify-between sticky top-0 bg-dark">
               <div>
                 <img
                   src={user.avatar}
                   alt={user.username}
-                  className="w-16 h-16 rounded-full mb-3 object-cover"
+                  className="w-20 h-20 rounded-full mb-3 object-cover"
                 />
                 <h2 className="text-2xl font-bold text-white">{user.username}</h2>
                 <p className="text-sm text-gray-400">{user.email}</p>
               </div>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-white text-2xl"
+                className="text-gray-400 hover:text-white text-2xl transition"
               >
                 ✕
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-5">
               {/* Status */}
               <div>
-                <p className="text-xs text-gray-400 uppercase font-bold mb-1">
+                <p className="text-xs text-gray-400 uppercase font-bold mb-2">
                   Status
                 </p>
                 <div className="flex items-center gap-2">
@@ -92,7 +117,7 @@ const ProfileModal = ({ userId, isOpen, onClose, isOwnProfile = false }) => {
 
               {/* Bio */}
               <div>
-                <p className="text-xs text-gray-400 uppercase font-bold mb-1">Bio</p>
+                <p className="text-xs text-gray-400 uppercase font-bold mb-2">Bio</p>
                 {isEditing && isOwnProfile ? (
                   <textarea
                     value={formData.bio || ''}
@@ -114,7 +139,7 @@ const ProfileModal = ({ userId, isOpen, onClose, isOwnProfile = false }) => {
 
               {/* Location */}
               <div>
-                <p className="text-xs text-gray-400 uppercase font-bold mb-1">
+                <p className="text-xs text-gray-400 uppercase font-bold mb-2">
                   📍 Location
                 </p>
                 {isEditing && isOwnProfile ? (
@@ -135,7 +160,7 @@ const ProfileModal = ({ userId, isOpen, onClose, isOwnProfile = false }) => {
 
               {/* Timezone */}
               <div>
-                <p className="text-xs text-gray-400 uppercase font-bold mb-1">
+                <p className="text-xs text-gray-400 uppercase font-bold mb-2">
                   🕐 Timezone
                 </p>
                 {isEditing && isOwnProfile ? (
@@ -157,7 +182,7 @@ const ProfileModal = ({ userId, isOpen, onClose, isOwnProfile = false }) => {
 
               {/* Website */}
               <div>
-                <p className="text-xs text-gray-400 uppercase font-bold mb-1">
+                <p className="text-xs text-gray-400 uppercase font-bold mb-2">
                   🌐 Website
                 </p>
                 {isEditing && isOwnProfile ? (
@@ -200,13 +225,13 @@ const ProfileModal = ({ userId, isOpen, onClose, isOwnProfile = false }) => {
             </div>
 
             {/* Actions */}
-            {isOwnProfile && (
-              <div className="p-6 border-t border-light flex gap-2">
-                {!isEditing ? (
+            <div className="p-6 border-t border-light flex gap-2 sticky bottom-0 bg-dark">
+              {isOwnProfile ? (
+                !isEditing ? (
                   <button
                     onClick={() => setIsEditing(true)}
                     className="flex-1 bg-primary hover:bg-secondary text-white 
-                               font-semibold py-2 rounded-xl transition"
+                               font-semibold py-3 rounded-xl transition"
                   >
                     ✏️ Edit Profile
                   </button>
@@ -215,21 +240,38 @@ const ProfileModal = ({ userId, isOpen, onClose, isOwnProfile = false }) => {
                     <button
                       onClick={handleSave}
                       className="flex-1 bg-primary hover:bg-secondary text-white 
-                                 font-semibold py-2 rounded-xl transition"
+                                 font-semibold py-3 rounded-xl transition"
                     >
                       💾 Save
                     </button>
                     <button
                       onClick={() => setIsEditing(false)}
                       className="flex-1 bg-gray-700 hover:bg-gray-600 text-white 
-                                 font-semibold py-2 rounded-xl transition"
+                                 font-semibold py-3 rounded-xl transition"
                     >
                       Cancel
                     </button>
                   </>
-                )}
-              </div>
-            )}
+                )
+              ) : (
+                <>
+                  <button
+                    onClick={handleStartDM}
+                    className="flex-1 bg-primary hover:bg-secondary text-white 
+                               font-semibold py-3 rounded-xl transition flex items-center 
+                               justify-center gap-2"
+                  >
+                    <span>💬</span> Message
+                  </button>
+
+                  <CallButton
+                    recipientId={user._id}
+                    recipientName={user.username}
+                    callType="dm"
+                  />
+                </>
+              )}
+            </div>
           </>
         ) : (
           <div className="p-8 text-center text-gray-400">

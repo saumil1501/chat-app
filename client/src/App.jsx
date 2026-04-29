@@ -8,7 +8,9 @@ import Chat from './pages/Chat';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import AdminDashboard from './pages/AdminDashboard';
-
+import CallPage from './pages/CallPage';
+import { CallProvider } from './context/CallContext';
+import IncomingCallModal from './components/Call/IncomingCallModal';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -52,9 +54,7 @@ const AppRoutes = () => {
         path="/chat"
         element={
           <ProtectedRoute>
-            <SocketProvider>
-              <Chat />
-            </SocketProvider>
+            <Chat />
           </ProtectedRoute>
         }
       />
@@ -67,6 +67,8 @@ const AppRoutes = () => {
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/call" element={<ProtectedRoute><CallPage /></ProtectedRoute>} />
+  <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };
@@ -75,7 +77,10 @@ const App = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <SocketProvider>
+          <CallProvider>
         <AppRoutes />
+        <IncomingCallModal />
         <Toaster
           position="top-right"
           toastOptions={{
@@ -87,6 +92,8 @@ const App = () => {
             duration: 3000,
           }}
         />
+        </CallProvider>
+        </SocketProvider>
       </AuthProvider>
     </BrowserRouter>
   );

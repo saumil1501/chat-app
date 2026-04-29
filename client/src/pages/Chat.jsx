@@ -49,6 +49,7 @@ const Chat = () => {
                 <Sidebar
                   activeRoom={activeRoom}
                   onRoomSelect={setActiveRoom}
+                  onTabChange={setActiveTab}
                 />
               ) : (
                 <DMList />

@@ -9,7 +9,7 @@ const DMList = () => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const { selectedUser, setSelectedUser } = useDM();
-  const { isUserOnline } = useSocket();
+  const { isUserOnline, socket } = useSocket();
 
   useEffect(() => {
     fetchConversations();
@@ -17,16 +17,87 @@ const DMList = () => {
 
   const fetchConversations = async () => {
     try {
+      console.log('📥 Fetching DM conversations...');
       const { data } = await api.get('/dm');
+      console.log('✅ Conversations fetched:', data.conversations);
       setConversations(data.conversations);
     } catch (error) {
+      console.error('❌ Failed to load conversations:', error);
       toast.error('Failed to load conversations');
+      setConversations([]);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div className="p-4 text-gray-400">Loading...</div>;
+  // ✅ Listen for new DM messages to update conversation list
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewDM = (message) => {
+      console.log('💌 New DM received, refreshing conversations');
+      
+      // Update conversation list
+      setConversations((prev) => {
+        const updated = [...prev];
+        const convIndex = updated.findIndex(
+          (c) => c.user._id === message.sender._id
+        );
+
+        if (convIndex >= 0) {
+          // Update existing conversation
+          updated[convIndex].lastMessage = message.content;
+          updated[convIndex].lastMessageTime = message.createdAt;
+          updated[convIndex].unreadCount += 1;
+        } else {
+          // Create new conversation
+          updated.unshift({
+            _id: message.sender._id,
+            user: message.sender,
+            lastMessage: message.content,
+            lastMessageTime: message.createdAt,
+            unreadCount: 1,
+          });
+        }
+
+        // Move to top
+        return updated.sort((a, b) => 
+          new Date(b.lastMessageTime) - new Date(a.lastMessageTime)
+        );
+      });
+    };
+
+    socket.on('dm:receive', handleNewDM);
+
+    return () => {
+      socket.off('dm:receive', handleNewDM);
+    };
+  }, [socket]);
+
+  // ✅ Clear unread count when user opens conversation
+  useEffect(() => {
+    if (!selectedUser) return;
+
+    setConversations((prev) =>
+      prev.map((conv) =>
+        conv._id === selectedUser._id
+          ? { ...conv, unreadCount: 0 }
+          : conv
+      )
+    );
+  }, [selectedUser?._id]);
+
+  if (loading) {
+    return (
+      <div className="p-4 text-gray-400 text-sm">
+        <div className="animate-pulse space-y-2">
+          <div className="h-12 bg-light rounded-xl" />
+          <div className="h-12 bg-light rounded-xl" />
+          <div className="h-12 bg-light rounded-xl" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2 p-2">
@@ -35,29 +106,34 @@ const DMList = () => {
       </h3>
 
       {conversations.length === 0 ? (
-        <p className="px-4 text-xs text-gray-500">No conversations yet</p>
+        <div className="px-4 py-8 text-center">
+          <p className="text-xs text-gray-500 mb-2">No conversations yet</p>
+          <p className="text-xs text-gray-600">
+            Go to 👥 Users tab and click on a user to start chatting
+          </p>
+        </div>
       ) : (
         conversations.map((conv) => (
           <button
             key={conv._id}
             onClick={() => setSelectedUser(conv.user)}
             className={`w-full flex items-center gap-3 p-3 rounded-xl text-left 
-                       transition ${
+                       transition relative ${
                          selectedUser?._id === conv.user._id
                            ? 'bg-primary text-white'
                            : 'hover:bg-light text-gray-300'
                        }`}
           >
+            {/* Avatar with Online Indicator */}
             <div className="relative shrink-0">
               <img
                 src={conv.user.avatar}
                 alt={conv.user.username}
-                className="w-8 h-8 rounded-full object-cover"
+                className="w-10 h-10 rounded-full object-cover"
               />
               <div
-                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full 
-                           border-2 border-darker
-                           ${
+                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 
+                           border-darker ${
                              isUserOnline(conv.user._id)
                                ? 'bg-green-500'
                                : 'bg-gray-500'
@@ -65,18 +141,21 @@ const DMList = () => {
               />
             </div>
 
+            {/* User Info */}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">
                 {conv.user.username}
               </p>
               <p className="text-xs text-gray-400 truncate">
-                {conv.lastMessage}
+                {conv.lastMessage || 'No messages yet'}
               </p>
             </div>
 
+            {/* ✅ Unread Badge - Only shows when count > 0 */}
             {conv.unreadCount > 0 && (
-              <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full">
-                {conv.unreadCount}
+              <span className="text-xs bg-red-500 text-white px-2.5 py-1 
+                             rounded-full flex-shrink-0 font-semibold">
+                {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
               </span>
             )}
           </button>

@@ -14,46 +14,53 @@ export const SocketProvider = ({ children }) => {
   const { token, user } = useAuth();
 
   useEffect(() => {
-    if (token && user) {
-      // Initialize socket connection
-      const newSocket = io(SOCKET_URL, {
-        auth: { token },
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      });
+    if (!token) return;
 
-      // Connection events
-      newSocket.on('connect', () => {
-        console.log('✅ Socket connected:', newSocket.id);
-        setIsConnected(true);
-      });
+    // Avoid recreating if socket already exists
+    if (socket) return;
 
-      newSocket.on('disconnect', (reason) => {
-        console.log('❌ Socket disconnected:', reason);
-        setIsConnected(false);
-      });
+    // Initialize socket connection
+    const newSocket = io(SOCKET_URL, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+    });
 
-      newSocket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error.message);
-        setIsConnected(false);
-      });
+    // Connection events
+    newSocket.on('connect', () => {
+      console.log('✅ Socket connected:', newSocket.id);
+      setIsConnected(true);
+    });
 
-      // Online users
-      newSocket.on('users:online', (userIds) => {
-        setOnlineUsers(userIds);
-      });
+    newSocket.on('disconnect', (reason) => {
+      console.log('❌ Socket disconnected:', reason);
+      setIsConnected(false);
+    });
 
-      setSocket(newSocket);
+    newSocket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      setIsConnected(false);
+    });
 
-      return () => {
-        newSocket.disconnect();
-        setSocket(null);
-        setIsConnected(false);
-      };
-    }
-  }, [token, user]);
+    newSocket.on('reconnect_failed', () => {
+      console.error('Socket reconnection failed');
+    });
+
+    // Online users
+    newSocket.on('users:online', (userIds) => {
+      setOnlineUsers(userIds);
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      try { newSocket.disconnect(); } catch (e) {}
+      setSocket(null);
+      setIsConnected(false);
+    };
+  }, [token]);
 
   const isUserOnline = (userId) => {
     return onlineUsers.includes(userId?.toString());

@@ -52,68 +52,65 @@ router.get('/:userId', authenticate, async (req, res) => {
   }
 });
 
+// server/routes/directMessages.js
+
 // @route   GET /api/dm
 // @desc    Get all DM conversations (list of users)
 router.get('/', authenticate, async (req, res) => {
   try {
-    // Get distinct conversations
-    const conversations = await DirectMessage.aggregate([
-      {
-        $match: {
-          $or: [
-            { sender: mongoose.Types.ObjectId(req.user._id) },
-            { recipient: mongoose.Types.ObjectId(req.user._id) },
-          ],
-        },
-      },
-      {
-        $sort: { createdAt: -1 },
-      },
-      {
-        $group: {
-          _id: {
-            $cond: [
-              { $eq: ['$sender', mongoose.Types.ObjectId(req.user._id)] },
-              '$recipient',
-              '$sender',
-            ],
-          },
-          lastMessage: { $first: '$content' },
-          lastMessageTime: { $first: '$createdAt' },
-          unreadCount: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $eq: ['$recipient', mongoose.Types.ObjectId(req.user._id)] },
-                    { $eq: ['$isRead', false] },
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-        },
-      },
-    ]);
+    console.log('📥 Fetching DM conversations for user:', req.user._id);
 
-    // Populate user details
-    const User = require('../models/User');
-    const conversationList = await Promise.all(
-      conversations.map(async (conv) => {
-        const user = await User.findById(conv._id).select(
-          'username avatar isOnline'
-        );
-        return {
-          ...conv,
-          user,
-        };
-      })
-    );
+    // 1. Find all messages involving the current user
+    const messages = await DirectMessage.find({
+      $or: [
+        { sender: req.user._id },
+        { recipient: req.user._id },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .populate('sender', 'username avatar isOnline')
+      .populate('recipient', 'username avatar isOnline');
+
+    console.log(`✅ Found ${messages.length} total DM messages`);
+
+    if (messages.length === 0) {
+      return res.json({ success: true, conversations: [] });
+    }
+
+    // 2. Group by conversation partner manually (more reliable than aggregation)
+    const conversationMap = new Map();
+
+    messages.forEach((msg) => {
+      // Determine who the "other" person is
+      const isSender = msg.sender._id.toString() === req.user._id.toString();
+      const partnerId = isSender ? msg.recipient._id.toString() : msg.sender._id.toString();
+      const partnerUser = isSender ? msg.recipient : msg.sender;
+
+      // Only keep the first message we see for this partner (since we sorted by date desc)
+      if (!conversationMap.has(partnerId)) {
+        conversationMap.set(partnerId, {
+          _id: partnerId,
+          user: partnerUser,
+          lastMessage: msg.content,
+          lastMessageTime: msg.createdAt,
+          unreadCount: 0,
+        });
+      }
+
+      // Count unread messages (messages sent TO current user that are not read)
+      if (!isSender && !msg.isRead) {
+        const conv = conversationMap.get(partnerId);
+        conv.unreadCount += 1;
+      }
+    });
+
+    const conversationList = Array.from(conversationMap.values());
+    
+    console.log(`✅ Grouped into ${conversationList.length} conversations`);
 
     res.json({ success: true, conversations: conversationList });
   } catch (error) {
+    console.error('❌ Error fetching DM conversations:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
