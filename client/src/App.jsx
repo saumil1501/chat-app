@@ -7,6 +7,8 @@ import Home from './pages/Home';
 import Chat from './pages/Chat';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
+import AdminDashboard from './pages/AdminDashboard';
+
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -53,6 +55,14 @@ const AppRoutes = () => {
             <SocketProvider>
               <Chat />
             </SocketProvider>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminDashboard />
           </ProtectedRoute>
         }
       />

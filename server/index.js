@@ -14,6 +14,8 @@ const socketHandler = require('./socket/socketHandler');
 const userProfileRoutes = require('./routes/userProfile');
 const uploadRoutes = require('./routes/upload');
 const directMessageRoutes = require('./routes/directMessages');
+const adminRoutes = require('./routes/admin');
+
 
 
 const app = express();
@@ -46,6 +48,8 @@ app.use('/api/user', userProfileRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/dm', directMessageRoutes);
 app.use('/api/threads', threadRoutes);
+app.use('/api/admin', adminRoutes);
+
 
 
 

@@ -81,6 +81,14 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  isBanned: {
+    type: Boolean,
+    default: false,
+  },
+  warnings: {
+    type: Number,
+    default: 0,
+  },
 }, { timestamps: true });
 
 // Hash password before saving
